@@ -49,6 +49,223 @@
       </p>
 
       <!-- 🔹 Paste your exported Perchance HTML below -->
+      <!-- Learn 'HTML' here:  https://www.khanacademy.org/computing/computer-programming/html-css    -->
+
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>ChatGoat IA</title>
+<style>
+body{font-family:sans-serif;background:#f5f6fa;padding:20px; text-align:left;}
+.chat{max-width:800px;margin:auto;background:white;border-radius:10px;padding:20px;box-shadow:0 4px 20px rgba(0,0,0,0.1);}
+.msg{margin:10px 0;}
+.user .bubble{background:#007bff;color:white;text-align:right;}
+.assistant .bubble{background:#eee;color:black;}
+.bubble{padding:10px 15px;border-radius:10px;display:inline-block;max-width:80%;}
+input{width:80%;padding:10px;border:1px solid #ccc;border-radius:6px;}
+button{padding:10px;background:#007bff;color:white;border:none;border-radius:6px;cursor:pointer; margin: 0 2px;}
+footer{text-align:center;margin-top:10px;color:#555;}
+.loading {color: #007bff; font-style: italic;}
+</style>
+</head>
+<body>
+<div class="chat">
+<h2>ChatGoat IA</h2>
+<div id="messages"></div>
+<form onsubmit="return sendMsg();">
+  <input id="prompt" placeholder="Écris ou parle..." autocomplete="off">
+  <button>Envoyer</button>
+  <button type="button" onclick="startMic()">🎙️</button>
+</form>
+<div style="margin-top:10px;">
+  <button onclick="resetChat()">🔄 Reset</button>
+  <button onclick="genImage()">🖼️ Image</button>
+</div>
+<footer>Voix et micro actifs 🎧</footer>
+</div>
+<script>
+let messages = [];
+
+// Load messages from persistent storage if available
+async function loadMessages() {
+  try {
+    if (typeof kv !== 'undefined') {
+      const saved = await kv.chatgoat.get("messages");
+      if (saved) messages = saved;
+      renderMessages();
+    }
+  } catch (e) {
+    console.log("Persistent storage unavailable");
+  }
+}
+
+// Save messages to persistent storage
+async function saveMessages() {
+  try {
+    if (typeof kv !== 'undefined') {
+      await kv.chatgoat.set("messages", messages);
+    }
+  } catch (e) {
+    console.log("Failed to save messages");
+  }
+}
+
+// Render all messages in the chat
+function renderMessages() {
+  messagesEl.innerHTML = '';
+  messages.forEach(msg => addMsgToDOM(msg.role, msg.text));
+}
+
+// Add a message to the DOM
+function addMsgToDOM(role, text) {
+  const m = document.createElement('div');
+  m.className = 'msg ' + role;
+  const b = document.createElement('div');
+  b.className = 'bubble';
+  
+  // Handle loading state
+  if (text === '...') {
+    b.className += ' loading';
+    b.textContent = 'Réflexion en cours';
+  } else {
+    b.textContent = text;
+  }
+  
+  m.appendChild(b);
+  messagesEl.appendChild(m);
+  window.scrollTo(0, document.body.scrollHeight);
+}
+
+// Add message to both DOM and messages array
+function addMsg(role, text) {
+  messages.push({role, text});
+  addMsgToDOM(role, text);
+  saveMessages();
+}
+
+// Send user message and get AI response
+async function sendMsg() {
+  const p = document.getElementById('prompt');
+  const txt = p.value.trim();
+  if (!txt) return false;
+  
+  addMsg('user', txt);
+  p.value = '';
+  
+  // Show loading indicator
+  addMsg('assistant', '...');
+  
+  try {
+    // Use generateText global for AI response
+    const historyText = messages.map(m => `${m.role}: ${m.text}`).join('\n');
+    const aiResponse = await generateText({
+      instruction: `Tu es ChatGoat IA, assistant bienveillant. Réponds au dernier message de l'utilisateur.\n\nHistorique:\n${historyText}`,
+      startWith: 'assistant:'
+    });
+    
+    // Remove loading indicator and add actual response
+    messages.pop(); // Remove loading message
+    addMsg('assistant', aiResponse.replace('assistant:', '').trim());
+    speak(aiResponse.replace('assistant:', '').trim());
+  } catch (e) {
+    messages.pop(); // Remove loading message
+    addMsg('assistant', 'Erreur: ' + e.message);
+  }
+  
+  return false;
+}
+
+// Reset chat
+async function resetChat() {
+  messages = [];
+  renderMessages();
+  await saveMessages();
+  addMsg('assistant', 'Réinitialisé ✅');
+}
+
+// Generate image
+async function genImage() {
+  const prompt = window.prompt('Décris ton image :');
+  if (!prompt) return;
+  
+  addMsg('user', '[Image demandée] ' + prompt);
+  
+  try {
+    // Show loading indicator
+    addMsg('assistant', '...');
+    
+    // Use generateImage global
+    const dataUrl = await generateImage(prompt);
+    
+    // Remove loading indicator
+    messages.pop();
+    
+    // Create and add image element
+    const img = document.createElement('img');
+    img.src = dataUrl;
+    img.style.maxWidth = '100%';
+    img.style.borderRadius = '8px';
+    
+    const d = document.createElement('div');
+    d.className = 'msg assistant';
+    const b = document.createElement('div');
+    b.className = 'bubble';
+    b.appendChild(img);
+    d.appendChild(b);
+    
+    messagesEl.appendChild(d);
+    window.scrollTo(0, document.body.scrollHeight);
+    
+    // Save to messages
+    messages.push({role: 'assistant', text: `[Image: ${prompt}]`});
+    saveMessages();
+  } catch (e) {
+    messages.pop();
+    addMsg('assistant', 'Erreur de génération d\'image: ' + e.message);
+  }
+}
+
+// Text-to-speech
+function speak(text) {
+  if (!('speechSynthesis' in window)) return;
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'fr-FR';
+  u.rate = 1.0;
+  speechSynthesis.speak(u);
+}
+
+// Speech recognition
+function startMic() {
+  if (!('webkitSpeechRecognition' in window)) {
+    alert('Reconnaissance vocale non supportée');
+    return;
+  }
+  
+  const rec = new webkitSpeechRecognition();
+  rec.lang = 'fr-FR';
+  rec.start();
+  
+  rec.onresult = (e) => {
+    const t = e.results[0][0].transcript;
+    document.getElementById('prompt').value = t;
+    sendMsg();
+  };
+}
+
+// Initialize chat on load
+window.onload = () => {
+  loadMessages();
+  if (messages.length === 0) {
+    addMsg('assistant', 'Bonjour! Je suis ChatGoat IA. Comment puis-je vous aider aujourd\'hui?');
+  }
+};
+</script>
+</body>
+</html>
+
+<!-- The line below makes it so if your device is in dark mode, then the default text color is switched to white, and the default background color is switch to black. -->
+<style> html { color-scheme: light dark; } </style>
       <div id="generator-area">
         <p><i>Example placeholder content...</i></p>
       </div>
