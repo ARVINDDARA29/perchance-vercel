@@ -51,224 +51,1738 @@
       <!-- 🔹 Paste your exported Perchance HTML below -->
       <!-- Learn 'HTML' here:  https://www.khanacademy.org/computing/computer-programming/html-css    -->
 
-<!doctype html>
+<!DOCTYPE html>
 <html>
-<head>
-<meta charset="utf-8">
-<title>ChatGoat IA</title>
-<style>
-body{font-family:sans-serif;background:#f5f6fa;padding:20px; text-align:left;}
-.chat{max-width:800px;margin:auto;background:white;border-radius:10px;padding:20px;box-shadow:0 4px 20px rgba(0,0,0,0.1);}
-.msg{margin:10px 0;}
-.user .bubble{background:#007bff;color:white;text-align:right;}
-.assistant .bubble{background:#eee;color:black;}
-.bubble{padding:10px 15px;border-radius:10px;display:inline-block;max-width:80%;}
-input{width:80%;padding:10px;border:1px solid #ccc;border-radius:6px;}
-button{padding:10px;background:#007bff;color:white;border:none;border-radius:6px;cursor:pointer; margin: 0 2px;}
-footer{text-align:center;margin-top:10px;color:#555;}
-.loading {color: #007bff; font-style: italic;}
-</style>
-</head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <body>
-<div class="chat">
-<h2>ChatGoat IA</h2>
-<div id="messages"></div>
-<form onsubmit="return sendMsg();">
-  <input id="prompt" placeholder="Écris ou parle..." autocomplete="off">
-  <button>Envoyer</button>
-  <button type="button" onclick="startMic()">🎙️</button>
-</form>
-<div style="margin-top:10px;">
-  <button onclick="resetChat()">🔄 Reset</button>
-  <button onclick="genImage()">🖼️ Image</button>
-</div>
-<footer>Voix et micro actifs 🎧</footer>
-</div>
-<script>
-let messages = [];
+<div class="flexWrapper">
+<div id="descHolder"></div>
 
-// Load messages from persistent storage if available
-async function loadMessages() {
-  try {
-    if (typeof kv !== 'undefined') {
-      const saved = await kv.chatgoat.get("messages");
-      if (saved) messages = saved;
-      renderMessages();
-    }
-  } catch (e) {
-    console.log("Persistent storage unavailable");
-  }
-}
+<button id="resetPageBtn" title="Resets all selected options and descriptions generated">⟲ Reset Page</button>
 
-// Save messages to persistent storage
-async function saveMessages() {
-  try {
-    if (typeof kv !== 'undefined') {
-      await kv.chatgoat.set("messages", messages);
-    }
-  } catch (e) {
-    console.log("Failed to save messages");
-  }
-}
+<div style="color:grey; font-size:14px; margin-top:1rem;">|------- STILL A WORK IN PROGRESS -------|</div>
 
-// Render all messages in the chat
-function renderMessages() {
-  messagesEl.innerHTML = '';
-  messages.forEach(msg => addMsgToDOM(msg.role, msg.text));
-}
+<h1 id="pageTitle">Character Description Generator</h1>
 
-// Add a message to the DOM
-function addMsgToDOM(role, text) {
-  const m = document.createElement('div');
-  m.className = 'msg ' + role;
-  const b = document.createElement('div');
-  b.className = 'bubble';
-  
-  // Handle loading state
-  if (text === '...') {
-    b.className += ' loading';
-    b.textContent = 'Réflexion en cours';
-  } else {
-    b.textContent = text;
-  }
-  
-  m.appendChild(b);
-  messagesEl.appendChild(m);
-  window.scrollTo(0, document.body.scrollHeight);
-}
+<div id="subtitle">Generate a character description based on the characteristics you provide.</div>
 
-// Add message to both DOM and messages array
-function addMsg(role, text) {
-  messages.push({role, text});
-  addMsgToDOM(role, text);
-  saveMessages();
-}
-
-// Send user message and get AI response
-async function sendMsg() {
-  const p = document.getElementById('prompt');
-  const txt = p.value.trim();
-  if (!txt) return false;
-  
-  addMsg('user', txt);
-  p.value = '';
-  
-  // Show loading indicator
-  addMsg('assistant', '...');
-  
-  try {
-    // Use generateText global for AI response
-    const historyText = messages.map(m => `${m.role}: ${m.text}`).join('\n');
-    const aiResponse = await generateText({
-      instruction: `Tu es ChatGoat IA, assistant bienveillant. Réponds au dernier message de l'utilisateur.\n\nHistorique:\n${historyText}`,
-      startWith: 'assistant:'
-    });
-    
-    // Remove loading indicator and add actual response
-    messages.pop(); // Remove loading message
-    addMsg('assistant', aiResponse.replace('assistant:', '').trim());
-    speak(aiResponse.replace('assistant:', '').trim());
-  } catch (e) {
-    messages.pop(); // Remove loading message
-    addMsg('assistant', 'Erreur: ' + e.message);
-  }
-  
-  return false;
-}
-
-// Reset chat
-async function resetChat() {
-  messages = [];
-  renderMessages();
-  await saveMessages();
-  addMsg('assistant', 'Réinitialisé ✅');
-}
-
-// Generate image
-async function genImage() {
-  const prompt = window.prompt('Décris ton image :');
-  if (!prompt) return;
-  
-  addMsg('user', '[Image demandée] ' + prompt);
-  
-  try {
-    // Show loading indicator
-    addMsg('assistant', '...');
-    
-    // Use generateImage global
-    const dataUrl = await generateImage(prompt);
-    
-    // Remove loading indicator
-    messages.pop();
-    
-    // Create and add image element
-    const img = document.createElement('img');
-    img.src = dataUrl;
-    img.style.maxWidth = '100%';
-    img.style.borderRadius = '8px';
-    
-    const d = document.createElement('div');
-    d.className = 'msg assistant';
-    const b = document.createElement('div');
-    b.className = 'bubble';
-    b.appendChild(img);
-    d.appendChild(b);
-    
-    messagesEl.appendChild(d);
-    window.scrollTo(0, document.body.scrollHeight);
-    
-    // Save to messages
-    messages.push({role: 'assistant', text: `[Image: ${prompt}]`});
-    saveMessages();
-  } catch (e) {
-    messages.pop();
-    addMsg('assistant', 'Erreur de génération d\'image: ' + e.message);
-  }
-}
-
-// Text-to-speech
-function speak(text) {
-  if (!('speechSynthesis' in window)) return;
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'fr-FR';
-  u.rate = 1.0;
-  speechSynthesis.speak(u);
-}
-
-// Speech recognition
-function startMic() {
-  if (!('webkitSpeechRecognition' in window)) {
-    alert('Reconnaissance vocale non supportée');
-    return;
-  }
-  
-  const rec = new webkitSpeechRecognition();
-  rec.lang = 'fr-FR';
-  rec.start();
-  
-  rec.onresult = (e) => {
-    const t = e.results[0][0].transcript;
-    document.getElementById('prompt').value = t;
-    sendMsg();
-  };
-}
-
-// Initialize chat on load
-window.onload = () => {
-  loadMessages();
-  if (messages.length === 0) {
-    addMsg('assistant', 'Bonjour! Je suis ChatGoat IA. Comment puis-je vous aider aujourd\'hui?');
-  }
-};
-</script>
-</body>
-</html>
-
-<!-- The line below makes it so if your device is in dark mode, then the default text color is switched to white, and the default background color is switch to black. -->
-<style> html { color-scheme: light dark; } </style>
-      <div id="generator-area">
-        <p><i>Example placeholder content...</i></p>
+<div id="mainCtn">
+ <!-- Custom Prompt Input -->
+  <div id="customPromptCtn">
+    <div class="itemBorderCtn">
+      <div class="textAreaTitle">
+        <span id="customPromptTitle">Additional Details</span>
       </div>
+      <textarea class="textBox" id="customPrompt" style="min-height:8rem; resize:vertical; transition:ease; overflow:auto;" placeholder="Enter any additional details you'd like your character to have..."></textarea>
+    </div>
+  </div>
+    
+<br>
+  
+<!-- Description Inputs --> 
+ <!-- First Row oF Inputs -->
+  <div class="rowOptionsCtn" id="firstDescriptionOptionsRow">
+  
+  <!-- First Name Input -->
+    <div class="itemBorderCtn">
+      <label for="inputFirstName">First Name
+        <button class="randomInputBtn" id="randomFirstNameBtn"
+          title="Generate a random first name">🎲
+        </button>
+      </label>
+      <input type="text" class="textLine" id="inputFirstName" placeholder="Set Characters First Name" style="border-radius:5px 0px 5px 5px;">
+    </div>
+    
+  <!-- Last Name Input -->
+    <div class="itemBorderCtn">
+      <label for="inputLastName">Last Name
+        <button class="randomInputBtn" id="randomLastNameBtn"title="Generate a last random name">🎲</button>
+      </label>
+      <input type="text" class="textLine" id="inputLastName" placeholder="Set Characters Last Name" style="border-radius:5px 0px 5px 5px;">
+    </div>
+
+  <!-- Gender Input -->
+    <div class="itemBorderCtn">
+      <label for="inputGender">Gender</label>
+      <select id="inputGender">
+        <option disabled hidden selected>Select One</option>
+        <option value="Man">Male</option>
+        <option value="Woman">Female</option>
+      </select>
+    </div>
+
+  <!-- Age Input -->
+    <div class="itemBorderCtn">
+      <input type="range" class="textLine" id="inputAge" min="18" max="75" step="1" value="25" style="height:18px;">
+      <div id="labelSlider"><b>Age: </b><input type="number" id="inputAgeDisplay" min="18" max="75" value="25"></div>
+    </div>
+    
+  </div>
+  
+ <!-- Second Row oF Inputs -->
+  <div class="rowOptionsCtn" id="secondDescriptionOptionsRow" > 
+    
+  <!-- Body Type Input -->
+    <div class="itemBorderCtn">
+      <label for="inputBodyType">Body Type</label>
+      <select id="inputBodyType">
+        <option disabled hidden selected>Select One</option>
+        <option value="Skinny">Skinny</option>
+        <option value="Slender">Slender</option>
+        <option value="Average">Average</option>
+        <option value="Athletic">Athletic</option>
+        <option value="Muscular">Muscular</option>
+        <option value="Heavy">Heavy</option>
+      </select>
+    </div>
+
+  <!-- Height Input -->
+    <div class="itemBorderCtn">
+      <label for="inputHeight">Height</label>
+      <select id="inputHeight">
+        <option disabled hidden selected>Select One</option>
+        <option value="Very Short">Very Short</option>
+        <option value="Short">Short</option>
+        <option value="Average height">Average</option>
+        <option value="Tall">Tall</option>
+        <option value="Very Tall">Very Tall</option>
+      </select>
+    </div>
+
+  <!-- Hair Color Input -->
+    <div class="itemBorderCtn">
+      <label for="inputHairColor">Hair Color</label>
+      <select id="inputHairColor">
+        <option disabled hidden selected>Select One</option>
+        <option value="Jet Black">Jet Black</option>
+        <option value="Black">Black</option>
+        <option value="Dark Brown">Dark Brown</option>
+        <option value="Brunette">Brunette</option>
+        <option value="Brown">Brown</option>
+        <option value="Light Brown">Light Brown</option>
+        <option value="Dark Blonde">Dark Blonde</option>
+        <option value="Dirty Blonde">Dirty Blonde</option>
+        <option value="Blonde">Blonde</option>
+        <option value="Golden Blonde">Golden Blonde</option>
+        <option value="Platinum Blonde">Platinum Blonde</option>
+        <option value="Strawberry Blonde">Strawberry Blonde</option>
+        <option value="Auburn">Auburn</option>
+        <option value="Chestnut">Chestnut</option>
+        <option value="Copper">Copper</option>
+        <option value="Ginger">Ginger</option>
+        <option value="Titan Red">Titan Red</option>
+        <option value="Red">Red</option>
+        <option value="Grey">Grey</option>
+        <option value="White">Natural White</option>
+        <option value="Blonde Highlights">Blonde Highlights</option>
+        <option value="Pink Highlights">Pink Highlights</option>
+        <option value="Blue Highlights">Blue Highlights</option>
+        <option value="Green Highlights">Green Highlights</option>
+        <option value="Purple Highlights">Purple Highlights</option>
+        <option value="Yellow Highlights">Yellow Highlights</option>
+        <option value="Orange Highlights">Orange Highlights</option>
+        <option value="Red Highlights">Red Highlights</option>
+        <option value="Dyed Silver">Dyed Silver</option>
+        <option value="Dyed Pure Black">Dyed Pure Black</option>
+        <option value="Dyed Pure White">Dyed Pure White</option>
+        <option value="Dyed Bleach Blonde">Dyed Bleach Blonde</option>
+        <option value="Dyed Pink">Dyed Pink</option>
+        <option value="Dyed Blue">Dyed Blue</option>
+        <option value="Dyed Green">Dyed Green</option>
+        <option value="Dyed Purple">Dyed Purple</option>
+        <option value="Dyed Yellow">Dyed Yellow</option>
+        <option value="Dyed Orange">Dyed Orange</option>
+        <option value="Dyed Red">Dyed Red</option>          
+      </select>
+    </div>
+    
+  <!-- Eye Color Input -->
+    <div class="itemBorderCtn">
+      <label for="inputEyeColor">Eye Color</label>
+      <select id="inputEyeColor">
+        <option disabled hidden selected>Select One</option>
+        <option value="Black">Black</option>
+        <option value="Light Brown">Light Brown</option>
+        <option value="Brown">Brown</option>
+        <option value="Dark Brown">Dark Brown</option>
+        <option value="Light Blue">Light Blue</option>
+        <option value="Blue">Blue</option>
+        <option value="Steel Blue">Steel Blue</option>
+        <option value="Dark Blue">Dark Blue</option>
+        <option value="Green">Green</option>
+        <option value="Hazel">Hazel</option>
+        <option value="Amber">Amber</option>
+      </select>
+    </div>
+ 
+  </div>   
+  
+ <!-- Third Row oF Inputs (M) -->
+  <div class="rowOptionsCtn" id="thirdDescriptionOptionsRowM" hidden> 
+
+  <!-- Male Hair Style Input -->
+    <div class="itemBorderCtn">
+      <label for="inputMaleHairStyle">Male Hair Style</label>
+      <select id="inputMaleHairStyle">
+        <option disabled hidden selected>Select One</option>
+        <option value="Bald">Bald</option>
+        <option value="Buzz Cut">Buzz Cut</option>
+        <option value="Crew Cut">Crew Cut</option>
+        <option value="Undercut">Undercut</option>
+        <option value="Slicked Back">Slicked Back</option>
+        <option value="Side Part">Side Part</option>
+        <option value="Dreadlocks">Dreadlocks</option>
+        <option value="Afro">Afro</option>
+        <option value="Fade">Fade</option>
+        <option value="Mohawk">Mohawk</option>
+        <option value="Mullet">Mullet</option>
+        <option value="Long Hair">Long Hair</option>
+        <option value="Short Hair">Short Hair</option>
+        <option value="Messy Hair">Messy Hair</option>
+        <option value="Curly Hair">Curly Hair</option>
+        <option value="Straight Hair">Straight Hair</option>
+      </select>
+    </div>
+    
+  <!-- Facial Hair Input -->
+    <div class="itemBorderCtn">
+      <label for="inputFacialHair">Facial Hair</label>
+      <select id="inputFacialHair">
+        <option disabled hidden selected>Select One</option>
+        <option value="Clean Shaven">Clean Shaven</option>
+        <option value="5 o'clock shadow">5 o'clock shadow</option>
+        <option value="Goatee">Goatee</option>
+        <option value="Mustache">Mustache</option>
+        <option value="Stubble">Stubble</option>
+        <option value="Patchy Beard">Patchy Beard</option>
+        <option value="Clean Trimmed Beard">Clean Trimmed Beard</option>
+        <option value="Full Beard">Full Beard</option>
+        <option value="Long Beard">Long Beard</option>
+      </select>
+    </div>
+
+  <!-- Male Specific Trait -->
+    <div class="itemBorderCtn"> 
+      <div class="dropdownMST" id="inputMSpecificTrait">
+        <label for="mSTContent">Male Specific Trait</label>
+        <button id="mSTBtn">Select Any<span style="white-space: pre;">            ▾</span></button>
+        <div class="dropdownContent" id="mSTContent">
+          <span class="dropdownContentSectionLabel"><b>---------  Shape  ---------</b></span>
+          <label><input name="mSpecificTrait" type="checkbox" value="Frail "> Frail</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Slim "> Slim</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Toned "> Toned</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Lean "> Lean</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Chiseled "> Chiseled</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Buff "> Buff</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Bulky "> Bulky</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Heavy "> Heavy</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Chubby "> Chubby</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Fat "> Fat</label>
+          <span class="dropdownContentSectionLabel"><b>---  Facial Features  ---</b></span>
+          <label><input name="mSpecificTrait" type="checkbox" value="Freckles"> Freckles</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Scars"> Scars</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Soft Features"> Soft Features</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Sharp Features"> Sharp Features</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Receding Hairline"> Receding Hairline</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Heavy brow ridge"> Heavy brow ridge</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Deep Set Eyes"> Deep Set Eyes</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Sharp Eyes"> Sharp Eyes</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Narrow Eyes"> Narrow Eyes</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Round Eyes"> Round Eyes</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Almond Eyes"> Almond Eyes</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Thin Eyebrows"> Thin Eyebrows</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Bushy Eyebrows"> Bushy Eyebrows</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Small Nose"> Small Nose</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Big Nose"> Big Nose</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Broad nose bridge"> Broad nose bridge</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Heavy cheekbone structure"> Heavy cheekbones</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Masculine forehead slope"> Masculine forehead slope</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Masculine jawline"> Masculine jawline</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Square Jaw"> Square Jaw</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Prominent Adam's Apple"> Prominent Adam's Apple</label>
+          <span class="dropdownContentSectionLabel"><b>---  Body Features  ---</b></span>
+          <label><input name="mSpecificTrait" type="checkbox" value="Thin Neck"> Thin Neck</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Thick Neck"> Thick Neck</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Weak Shoulders"> Weak Shoulders</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Broad Shoulders"> Broad Shoulders</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Thin Arms"> Thin Arms</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Muscular Arms"> Muscular Arms</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Oversized Muscular Arms"> Oversized Muscular Arms</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Wide pecktoral muscles"> Wide pecktoral muscles</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Flat Stomach"> Flat Stomach</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Toned Stomach"> Toned Stomach</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Six Pack"> Six Pack</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Chiseled Abs"> Chiseled Abs</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Thin Legs"> Thin Legs</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Muscular Legs"> Muscular Legs</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Oversized Muscular Legs"> Oversized Muscular Legs</label>
+          <span class="dropdownContentSectionLabel"><b>----------  Aura  ----------</b></span>
+          <label><input name="mSpecificTrait" type="checkbox" value="Intimidating"> Intimidating</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Stoic"> Stoic</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Fatherly"> Fatherly</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Handsome"> Handsome</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Rugged"> Rugged</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Masculine"> Masculine</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Strong"> Strong</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Powerful"> Powerful</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Weak"> Weak</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Plain"> Plain</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Basic"> Basic</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="timid"> Timid</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Shy"> Shy</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Soft"> Soft</label>
+          <label><input name="mSpecificTrait" type="checkbox" value="Gentle"> Gentle</label>
+        </div>
+      </div>
+    </div>
+
+  <!-- Male Clothing Input -->
+    <div class="itemBorderCtn"> 
+      <div class="dropdownMClothing" id="inputMClothing">
+        <label for="mClothingContent">Male Clothing</label>
+        <button id="mClothingBtn">Select Any<span style="white-space: pre;">            ▾</span></button>
+        <div class="dropdownContent" id="mClothingContent" >
+          <label><input name="mClothing" type="checkbox" value="Suit"> Suit</label>
+          <label><input name="mClothing" type="checkbox" value="Casual"> Casual</label>
+          <label><input name="mClothing" type="checkbox" value="Formal"> Formal</label>
+          <label><input name="mClothing" type="checkbox" value="Sportswear"> Sportswear</label>
+          <label><input name="mClothing" type="checkbox" value="Business Casual"> Business Casual</label>
+          <label><input name="mClothing" type="checkbox" value="Plain T-Shirt"> Plain T-Shirt</label>
+          <label><input name="mClothing" type="checkbox" value="Graphic T-Shirt"> Graphic T-Shirt</label>
+          <label><input name="mClothing" type="checkbox" value="Button-Up Shirt"> Button-Up Shirt</label>
+          <label><input name="mClothing" type="checkbox" value="Flannel Shirt"> Flannel Shirt</label>
+          <label><input name="mClothing" type="checkbox" value="Jeans"> Jeans</label>
+          <label><input name="mClothing" type="checkbox" value="Shorts"> Shorts</label>
+          <label><input name="mClothing" type="checkbox" value="Cargo Pants"> Cargo Pants</label>
+          <label><input name="mClothing" type="checkbox" value="Khakis"> Khakis</label>
+          <label><input name="mClothing" type="checkbox" value="Dress Pants"> Dress Pants</label>
+          <label><input name="mClothing" type="checkbox" value="Casual slacks"> Casual Slacks</label>
+          <label><input name="mClothing" type="checkbox" value="Sweatpants"> Sweatpants</label>
+          <label><input name="mClothing" type="checkbox" value="Hoodie"> Hoodie</label>
+          <label><input name="mClothing" type="checkbox" value="Jacket"> Jacket</label>
+          <label><input name="mClothing" type="checkbox" value="Coat"> Coat</label>
+          <label><input name="mClothing" type="checkbox" value="Leather Jacket"> Leather Jacket</label>
+          <label><input name="mClothing" type="checkbox" value="Sneakers"> Sneakers</label>
+          <label><input name="mClothing" type="checkbox" value="Boots"> Boots</label>
+          <label><input name="mClothing" type="checkbox" value="Dress Shoes"> Dress Shoes</label>
+          <label><input name="mClothing" type="checkbox" value="Sandals"> Sandals</label>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+ 
+ <!-- Third Row oF Inputs (F) -->
+  <div class="rowOptionsCtn" id="thirdDescriptionOptionsRowF" hidden> 
+    
+  <!-- Female Hair Style Input -->
+    <div class="itemBorderCtn">
+      <label for="inputFemaleHairStyle">Female Hair Style</label>
+      <select id="inputFemaleHairStyle">
+        <option disabled hidden selected>Select One</option>
+        <option value="Bangs">Bangs</option>
+        <option value="Braids">Braids</option>
+        <option value="Ponytail">Ponytail</option>
+        <option value="Loose Ponytail">Loose Ponytail</option>
+        <option value="Pigtails">Pigtails</option>
+        <option value="Hair Bun">Hair Bun</option>
+        <option value="Updo">Updo</option>
+        <option value="Messy Hair">Messy Hair</option>
+        <option value="Curly Hair">Curly Hair</option>
+        <option value="Straight Hair">Straight Hair</option>
+        <option value="Wavy Hair">Wavy Hair</option>
+        <option value="Lush Hair">Lush Hair</option>
+        <option value="Layered Hair">Layered Hair</option>
+        <option value="Stylish Hair">Stylish Hair</option>
+        <option value="Profesionally Styled Hair">Profesionally Styled Hair</option>
+        <option value="Asymmetrical Hair">Asymmetrical Hair</option>
+        <option value="Pixie Cut">Pixie Cut</option>
+        <option value="Tangled Hair">Tangled Hair</option>
+        <option value="Unkempt Hair">Unkempt Hair</option>
+      </select>
+    </div>
+
+  <!-- Female Hair Length Input -->
+    <div class="itemBorderCtn">
+      <label for="inputFemaleHairLength">Female Hair Length</label>
+      <select id="inputFemaleHairLength">
+        <option disabled hidden selected>Select One</option>
+        <option value="Half Side Taper">Half Side Taper</option>
+        <option value="Short">Short</option>
+        <option value="Shoulder Length">Shoulder Length</option>
+        <option value="Long">Long</option>
+        <option value="Very Long">Very Long</option>
+        <option value="Waist Length">Waist Length</option>
+      </select>
+    </div>
+    
+  <!-- Female Specific Trait -->
+    <div class="itemBorderCtn"> 
+      <div class="dropdownFST" id="inputFSpecificTrait">
+        <label for="fSTContent">Female Specific Trait</label>
+        <button id="fSTBtn">Select Any<span style="white-space: pre;">            ▾</span></button>
+        <div class="dropdownContent" id="fSTContent">
+          <span class="dropdownContentSectionLabel"><b>---------  Shape  ---------</b></span>
+          <label><input name="fSpecificTrait" type="checkbox" value="Frail"> Frail</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Petite"> Petite</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Slim"> Slim</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Toned"> Toned</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Hourglass Figure"> Hourglass Figure</label> 
+          <label><input name="fSpecificTrait" type="checkbox" value="Thicc"> Thicc</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Curvy"> Curvy</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Voluptuous"> Voluptuous</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Plump"> Plump</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Chubby"> Chubby</label>
+
+          <span class="dropdownContentSectionLabel"><b>---  Facial Features  ---</b></span>
+          <label><input name="fSpecificTrait" type="checkbox" value="Soft Eyes"> Soft Eyes</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Big Eyes"> Big Eyes</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Round Eyes"> Round Eyes</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Almond Eyes"> Almond Eyes</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Small Nose"> Small Nose</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Button Nose"> Button Nose</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Thin Lips"> Thin Lips</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Full Lips"> Full Lips</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Plump Lips"> Plump Lips</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Pouty Lips"> Pouty Lips</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Soft Smile"> Soft Smile</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Cute Smile"> Cute Smile</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Sweet Smile"> Sweet Smile</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Seductive Smile"> Seductive Smile</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Flirtatious Smile"> Flirtatious Smile</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Devious Smile"> Devious Smile</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Evil Smile"> Evil Smile</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="High Cheekbones"> High Cheekbones</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Soft Cheeks"> Soft Cheeks</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Rosy Cheeks"> Rosy Cheeks</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Faint Freckles"> Faint Freckles</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Prominent Freckles"> Prominent Freckles</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Dusting of Freckles Over her Nose"> Freckles Dusting Nose</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Soft Jawline"> Soft Jawline</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Soft Eyebrows"> Soft Eyebrows</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Thin Eyebrows"> Thin Eyebrows</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Thick Eyebrows"> Thick Eyebrows</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Sharp Eyebrows"> Sharp Eyebrows</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Long Eyelashes"> Long Eyelashes</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Round Face"> Round Face</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Heart Shaped Face"> Heart Shaped Face</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Oval Face"> Oval Face</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Narrow Face"> Narrow Face</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Wide Face"> Wide Face</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Soft Chin"> Soft Chin</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Pointy Chin"> Pointy Chin</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Soft Features"> Soft Features</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Sharp Features"> Sharp Features</label>
+
+          <span class="dropdownContentSectionLabel"><b>-------  Makeup  -------</b></span>
+          <label><input name="fSpecificTrait" type="checkbox" value="Makeup"> Makeup</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Heavy Makeup"> Heavy Makeup</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Light Makeup"> Light Makeup</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Lipstick"> Lipstick</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Lip Gloss"> Lip Gloss</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Eyeliner"> Eyeliner</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Winged Eyeliner"> Winged Eyeliner</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Cat Eye Makeup"> Cat Eye Makeup</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Mascara"> Mascara</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Eyeshadow"> Eyeshadow</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Blush"> Blush</label>
+          
+          <span class="dropdownContentSectionLabel"><b>---  Body Features  ---</b></span>
+          <label><input name="fSpecificTrait" type="checkbox" value="Narrow Waist"> Narrow Waist</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Tiny Waist"> Tiny Waist</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Soft Hips"> Soft Hips</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Wide Hips"> Wide Hips</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Thin Thighs"> Thin Thighs</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Thick Thighs"> Thick Thighs</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Thigh Gap"> Thigh Gap</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Flat Butt"> Flat Butt</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Small Butt"> Small Butt</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Medium Butt"> Medium Butt</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Large Butt"> Large Butt</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Bubble Butt"> Bubble Butt</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Massive Butt"> Massive Butt</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Huge Breasts"> Huge Breasts</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Large Breasts"> Large Breasts</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Medium Breasts"> Medium Breasts</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Small Breasts"> Small Breasts</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Perky Breasts"> Perky Breasts</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Round Breasts"> Round Breasts</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Fake Breasts"> Fake Breasts</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Saggy Breasts"> Saggy Breasts</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Flat Chest"> Flat Chest</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Long Legs"> Long Legs</label>
+
+          <span class="dropdownContentSectionLabel"><b>----------  Aura  ----------</b></span>
+          <label><input name="fSpecificTrait" type="checkbox" value="Innocent"> Innocent</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Adorable"> Adorable</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Cute"> Cute</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Beautiful"> Beautiful</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Gorgeous"> Gorgeous</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Graceful"> Graceful</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Elegant"> Elegant</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Feminine"> Feminine</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Motherly"> Motherly</label>
+          <label><input name="fSpecificTrait" type="checkbox" value="Delicate"> Delicate</label>
+        </div>
+      </div>
+    </div>
+
+  <!-- Female Clothing Input -->
+    <div class="itemBorderCtn"> 
+      <div class="dropdownFClothing" id="inputFClothing">
+        <label for="fClothingContent">Female Clothing</label>
+        <button id="fClothingBtn">Select Any<span style="white-space: pre;">            ▾</span></button>
+        <div class="dropdownContent" id="fClothingContent" >
+          <span class="dropdownContentSectionLabel"><b>---------  Tops  ---------</b></span>
+          <label><input name="fClothing" type="checkbox" value="Low Cut"> Low Cut Top</label>
+          <label><input name="fClothing" type="checkbox" value="Blouse"> Blouse</label>
+          <label><input name="fClothing" type="checkbox" value="Tank Top"> Tank Top</label>
+          <label><input name="fClothing" type="checkbox" value="Spaghetti Strap"> Spaghetti Strap</label>
+          <label><input name="fClothing" type="checkbox" value="Crop Top"> Crop Top</label>
+          <label><input name="fClothing" type="checkbox" value="T-Shirt"> T-Shirt</label>
+          <label><input name="fClothing" type="checkbox" value="Oversized T-Shirt"> Oversized T-Shirt</label>
+          <label><input name="fClothing" type="checkbox" value="Bralette"> Bralette</label>
+          <label><input name="fClothing" type="checkbox" value="Corset"> Corset</label>
+          <label><input name="fClothing" type="checkbox" value="Bustier"> Bustier</label>
+          
+          <span class="dropdownContentSectionLabel"><b>-------  Bottoms  -------</b></span>
+          <label><input name="fClothing" type="checkbox" value="Jeans"> Jeans</label>
+          <label><input name="fClothing" type="checkbox" value="Skinny Jeans"> Skinny Jeans</label>
+          <label><input name="fClothing" type="checkbox" value="Designer Jeans"> Deigner Jeans</label>
+          <label><input name="fClothing" type="checkbox" value="Leggings"> Leggings</label>
+          <label><input name="fClothing" type="checkbox" value="Joggers"> Joggers</label>
+          <label><input name="fClothing" type="checkbox" value="Sweatpants"> Sweatpants</label>
+          <label><input name="fClothing" type="checkbox" value="Yoga Pants"> Yoga Pants</label>
+          <label><input name="fClothing" type="checkbox" value="Boy Shorts"> Boy Shorts</label>
+          <label><input name="fClothing" type="checkbox" value="Booty Shorts"> Booty Shorts</label>
+          <label><input name="fClothing" type="checkbox" value="Short Shorts"> Short Shorts</label>
+          <label><input name="fClothing" type="checkbox" value="Shorts"> Shorts</label>
+          <label><input name="fClothing" type="checkbox" value="Mini Skirt"> Mini Skirt</label>
+          <label><input name="fClothing" type="checkbox" value="Skirt"> Skirt</label>
+          <label><input name="fClothing" type="checkbox" value="Flare Skirt"> Flare Skirt</label>
+          <label><input name="fClothing" type="checkbox" value="Tight Skirt"> Tight Skirt</label>
+          
+          <span class="dropdownContentSectionLabel"><b>-----  Night Wear  -----</b></span>
+          <label><input name="fClothing" type="checkbox" value="Camisole"> Camisole</label>
+          <label><input name="fClothing" type="checkbox" value="Nightie"> Nightie</label>
+          <label><input name="fClothing" type="checkbox" value="Nightgown"> Nightgown</label>
+          <label><input name="fClothing" type="checkbox" value="Lingerie"> Lingerie</label>
+          <label><input name="fClothing" type="checkbox" value="Onesie"> Onesie</label>
+          <label><input name="fClothing" type="checkbox" value="Pajama pants"> Pajama Pants</label>
+          <label><input name="fClothing" type="checkbox" value="Small Pajama Shorts"> Small Pajama Shorts</label>
+          
+          <span class="dropdownContentSectionLabel"><b>-----  Underwear  -----</b></span>
+          <label><input name="fClothing" type="checkbox" value="Casual Bra"> Casual Bra</label>
+          <label><input name="fClothing" type="checkbox" value="Lace Bra"> Lace Bra</label>
+          <label><input name="fClothing" type="checkbox" value="Sports Bra"> Sports Bra</label>
+          <label><input name="fClothing" type="checkbox" value="Push-Up Bra"> Push-Up Bra</label>
+          <label><input name="fClothing" type="checkbox" value="Balconette Bra"> Balconette Bra</label>
+          <label><input name="fClothing" type="checkbox" value="Panties"> Panties</label>
+          <label><input name="fClothing" type="checkbox" value="White Panties"> White Panties</label>
+          <label><input name="fClothing" type="checkbox" value="Black Panties"> Black Panties</label>
+          <label><input name="fClothing" type="checkbox" value="Pink Panties"> Pink Panties</label>
+          <label><input name="fClothing" type="checkbox" value="Lace Panties"> Lace Panties</label>
+          <label><input name="fClothing" type="checkbox" value="Thong"> Thong</label>
+          <label><input name="fClothing" type="checkbox" value="G-String"> G-String</label>
+
+          <span class="dropdownContentSectionLabel"><b>-----  Swimwear  -----</b></span>
+          <label><input name="fClothing" type="checkbox" value="Bikini"> Bikini</label>
+          <label><input name="fClothing" type="checkbox" value="String Bikini"> String Bikini</label>
+          <label><input name="fClothing" type="checkbox" value="Bikini Thong"> Bikini Thong</label>
+          <label><input name="fClothing" type="checkbox" value="Blue Bikini"> Blue Bikini</label>
+          <label><input name="fClothing" type="checkbox" value="Red Bikini"> Red Bikini</label>
+          <label><input name="fClothing" type="checkbox" value="Black Bikini"> Black Bikini</label>
+          <label><input name="fClothing" type="checkbox" value="Pink Bikini"> Pink Bikini</label>
+          <label><input name="fClothing" type="checkbox" value="White Bikini"> White Bikini</label>
+          <label><input name="fClothing" type="checkbox" value="Yellow Bikini"> Yellow Bikini</label>
+          <label><input name="fClothing" type="checkbox" value="Pokadot Bikini"> Pokadot Bikini</label>
+          <label><input name="fClothing" type="checkbox" value="Striped Bikini"> Striped Bikini</label>
+          <label><input name="fClothing" type="checkbox" value="One Piece"> One Piece</label>
+
+          <span class="dropdownContentSectionLabel"><b>-------  Dresses  -------</b></span>
+          <label><input name="fClothing" type="checkbox" value="Dress"> Dress</label>
+          <label><input name="fClothing" type="checkbox" value="Sundress"> Sundress</label>
+          <label><input name="fClothing" type="checkbox" value="Cocktail Dress"> Cocktail Dress</label>
+          <label><input name="fClothing" type="checkbox" value="Little Black Dress"> Little Black Dress</label>
+          <label><input name="fClothing" type="checkbox" value="Formal Dress"> Formal Dress</label>
+          <label><input name="fClothing" type="checkbox" value="Evening Gown"> Evening Gown</label>
+          <label><input name="fClothing" type="checkbox" value="Elegant Dress"> Elegant Dress</label>
+          <label><input name="fClothing" type="checkbox" value="Prom Dress"> Prom Dress</label>
+          <label><input name="fClothing" type="checkbox" value="Wedding Dress"> Wedding Dress</label>
+          <label><input name="fClothing" type="checkbox" value="Princess Dress"> Princess Dress</label>
+          <label><input name="fClothing" type="checkbox" value="Flare Dress"> Flare Dress</label>
+          <label><input name="fClothing" type="checkbox" value="Tight Dress"> Tight Dress</label>
+          <label><input name="fClothing" type="checkbox" value="Super Short Dress"> Super Short Dress</label>
+          <label><input name="fClothing" type="checkbox" value="Short Dress"> Short Dress</label>
+          <label><input name="fClothing" type="checkbox" value="Long Dress"> Long Dress</label>
+
+          <span class="dropdownContentSectionLabel"><b>-----  Warm Wear  -----</b></span>
+          <label><input name="fClothing" type="checkbox" value="Sweater"> Sweater</label>
+          <label><input name="fClothing" type="checkbox" value="Hoodie"> Hoodie</label>
+          <label><input name="fClothing" type="checkbox" value="Cardigan"> Cardigan</label>
+          <label><input name="fClothing" type="checkbox" value="Jacket"> Jacket</label>
+          <label><input name="fClothing" type="checkbox" value="Leather Jacket"> Leather Jacket</label>
+          <label><input name="fClothing" type="checkbox" value="Denim Jacket"> Denim Jacket</label>
+          <label><input name="fClothing" type="checkbox" value="Bomber Jacket"> Bomber Jacket</label>
+          <label><input name="fClothing" type="checkbox" value="Trench Coat"> Trench Coat</label>
+          <label><input name="fClothing" type="checkbox" value="Peacoat"> Peacoat</label>
+          <label><input name="fClothing" type="checkbox" value="Coat"> Coat</label>
+          <label><input name="fClothing" type="checkbox" value="Parka"> Parka</label>
+          <label><input name="fClothing" type="checkbox" value="Puffer Jacket"> Puffer Jacket</label>
+          <label><input name="fClothing" type="checkbox" value="Winter Coat"> Winter Coat</label>
+
+          <span class="dropdownContentSectionLabel"><b>-----  Footwear  -----</b></span>
+          <label><input name="fClothing" type="checkbox" value="Bare Feet"> Bare Feet</label>
+          <label><input name="fClothing" type="checkbox" value="Socks"> Socks</label>
+          <label><input name="fClothing" type="checkbox" value="Knee High Socks"> Knee High Socks</label>
+          <label><input name="fClothing" type="checkbox" value="Stockings"> Stockings</label>
+          <label><input name="fClothing" type="checkbox" value="Fishnet Stockings"> Fishnet Stockings</label>
+          <label><input name="fClothing" type="checkbox" value="Heels"> Heels</label>
+          <label><input name="fClothing" type="checkbox" value="High Heels"> High Heels</label>
+          <label><input name="fClothing" type="checkbox" value="Stiletto Heels"> Stiletto Heels</label>
+          <label><input name="fClothing" type="checkbox" value="Flats"> Flats</label>
+          <label><input name="fClothing" type="checkbox" value="Sneakers"> Sneakers</label>
+          <label><input name="fClothing" type="checkbox" value="Running Shoes"> Running Shoes</label>
+          <label><input name="fClothing" type="checkbox" value="Boots"> Boots</label>
+          <label><input name="fClothing" type="checkbox" value="Ankle Boots"> Ankle Boots</label>
+          <label><input name="fClothing" type="checkbox" value="Knee High Boots"> Knee High Boots</label>
+          <label><input name="fClothing" type="checkbox" value="Thigh High Boots"> Thigh High Boots</label>
+          <label><input name="fClothing" type="checkbox" value="Sandals"> Sandals</label>
+          <label><input name="fClothing" type="checkbox" value="Flip Flops"> Flip Flops</label>
+
+          <span class="dropdownContentSectionLabel"><b>-----  Style  -----</b></span>
+          <label><input name="fClothing" type="checkbox" value="Preppy Clothing Style"> Preppy</label>
+          <label><input name="fClothing" type="checkbox" value="Goth Clothing Style"> Goth</label>
+          <label><input name="fClothing" type="checkbox" value="Punk Clothing Style"> Punk</label>
+          <label><input name="fClothing" type="checkbox" value="Emo Clothing Style"> Emo</label>
+          <label><input name="fClothing" type="checkbox" value="Hipster Clothing Style"> Hipster</label>
+          <label><input name="fClothing" type="checkbox" value="Bohemian Clothing Style"> Bohemian</label>
+          <label><input name="fClothing" type="checkbox" value="Chic Clothing Style"> Chic</label>
+          <label><input name="fClothing" type="checkbox" value="Lounge Clothing Style"> Lounge</label>
+          <label><input name="fClothing" type="checkbox" value="Cozy Clothing Style"> Cozy</label>
+          <label><input name="fClothing" type="checkbox" value="Casual Clothing Style"> Casual</label>
+          <label><input name="fClothing" type="checkbox" value="Business Casual Clothing Style"> Business Casual</label>
+          <label><input name="fClothing" type="checkbox" value="Formal Clothing Style"> Formal</label>
+          <label><input name="fClothing" type="checkbox" value="Business Formal Clothing Style"> Business Formal</label>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+
+ <!-- Fourth Row oF Inputs -->
+   <div class="rowOptionsCtn" id="secondDescriptionOptionsCtn" > 
+    
+  <!-- Accessories Input -->
+    <div class="itemBorderCtn"> 
+      <div class="dropdownAccessory" id="inputAccessory">
+        <label for="accessoryContent">Accessories</label>
+        <button id="accessoryBtn">Select Any<span style="white-space: pre;">            ▾</span></button>
+        <div class="dropdownContent" id="accessoryContent">
+          <span class="dropdownContentSectionLabel"><b>-------  Jewelry  -------</b></span>
+          <label><input name="accessory" type="checkbox" value="Choker"> Choker</label>
+          <label><input name="accessory" type="checkbox" value="Necklace"> Necklace</label>
+          <label><input name="accessory" type="checkbox" value="Watch"> Watch</label>
+          <label><input name="accessory" type="checkbox" value="Bracelet"> Bracelet</label>
+          <label><input name="accessory" type="checkbox" value="Anklet"> Anklet</label>
+          <label><input name="accessory" type="checkbox" value="Belly Chain"> Belly Chain</label>
+          <label><input name="accessory" type="checkbox" value="Ring"> Ring</label>
+          <label><input name="accessory" type="checkbox" value="Engagement Ring"> Engagement Ring</label>
+          <label><input name="accessory" type="checkbox" value="Wedding Ring"> Wedding Ring</label>
+          <label><input name="accessory" type="checkbox" value="Earrings"> Earrings</label>
+          <label><input name="accessory" type="checkbox" value="Stud Earrings"> Stud Earrings</label>
+          <label><input name="accessory" type="checkbox" value="Hoop Earrings"> Hoop Earrings</label>
+          <label><input name="accessory" type="checkbox" value="Guages"> Guages</label>
+          
+          <span class="dropdownContentSectionLabel"><b>------  Piercings  ------</b></span>
+          <label><input name="accessory" type="checkbox" value="Nose Piercing"> Nose Piercing</label>
+          <label><input name="accessory" type="checkbox" value="Septum Piercing"> Septum Piercing</label>
+          <label><input name="accessory" type="checkbox" value="Lip Piercing"> Lip Piercing</label>
+          <label><input name="accessory" type="checkbox" value="Tongue Piercing"> Tongue Piercing</label>
+          <label><input name="accessory" type="checkbox" value="Eyebrow Piercing"> Eyebrow Piercing</label>
+          <label><input name="accessory" type="checkbox" value="Belly Button Piercing"> Belly Button Piercing</label>
+          <label><input name="accessory" type="checkbox" value="Nipple Piercing"> Nipple Piercing</label>
+
+          <span class="dropdownContentSectionLabel"><b>--------  Tattoos  --------</b></span>
+          <label><input name="accessory" type="checkbox" value="Single Tattoo"> Single Tattoo</label>
+          <label><input name="accessory" type="checkbox" value="A Few Tattoos"> A Few Tattoos</label>
+          <label><input name="accessory" type="checkbox" value="Many Tattoos"> Many Tattoos</label>
+          <label><input name="accessory" type="checkbox" value="Covered In Tattoos"> Covered In Tattoos</label>
+          <label><input name="accessory" type="checkbox" value="Sleeve Tattoo"> Sleeve Tattoo</label>
+          <label><input name="accessory" type="checkbox" value="Arm Tattoo"> Arm Tattoo</label>
+          <label><input name="accessory" type="checkbox" value="Leg Tattoo"> Leg Tattoo</label>
+          <label><input name="accessory" type="checkbox" value="Back Tattoo"> Back Tattoo</label>
+          <label><input name="accessory" type="checkbox" value="Chest Tattoo"> Chest Tattoo</label>
+          <label><input name="accessory" type="checkbox" value="Neck Tattoo"> Neck Tattoo</label>
+
+          <span class="dropdownContentSectionLabel"><b>------  Hair  ------</b></span>
+          <label><input name="accessory" type="checkbox" value="Hair Clip"> Hair Clip</label>
+          <label><input name="accessory" type="checkbox" value="Hair Tie"> Hair Tie</label>
+          <label><input name="accessory" type="checkbox" value="Hair Ribbon"> Hair Ribbon</label>
+          <label><input name="accessory" type="checkbox" value="Hair Bow"> Hair Bow</label>
+          <label><input name="accessory" type="checkbox" value="Hair Flower"> Hair Flower</label>
+          <label><input name="accessory" type="checkbox" value="Hair Band"> Hair Band</label>
+          <label><input name="accessory" type="checkbox" value="Hair Scrunchie"> Hair Scrunchie</label>
+          <label><input name="accessory" type="checkbox" value="Wig"> Wig</label>
+          <label><input name="accessory" type="checkbox" value="Hair Extensions"> Hair Extensions</label>
+
+          <span class="dropdownContentSectionLabel"><b>------  Eyewear  ------</b></span>
+          <label><input name="accessory" type="checkbox" value="Glasses"> Glasses</label>
+          <label><input name="accessory" type="checkbox" value="Round Glasses"> Round Glasses</label>
+          <label><input name="accessory" type="checkbox" value="Square Glasses"> Square Glasses</label>
+          <label><input name="accessory" type="checkbox" value="Big Stylish Glasses"> Big Stylish Glasses</label>
+          <label><input name="accessory" type="checkbox" value="Sunglasses"> Sunglasses</label>
+          <label><input name="accessory" type="checkbox" value="Aviator Sunglasses"> Aviators</label>
+          <label><input name="accessory" type="checkbox" value="Monocle"> Monocle</label>
+          <label><input name="accessory" type="checkbox" value="Goggles"> Goggles</label>
+          <label><input name="accessory" type="checkbox" value="Eye Patch"> Eye Patch</label>
+          <label><input name="accessory" type="checkbox" value="Blindfold"> Blindfold</label>
+
+          <span class="dropdownContentSectionLabel"><b>------  Headwear  ------</b></span>
+          <label><input name="accessory" type="checkbox" value="Bandana"> Bandana</label>
+          <label><input name="accessory" type="checkbox" value="Headband"> Headband</label>
+          <label><input name="accessory" type="checkbox" value="Ear Muffs"> Ear Muffs</label>
+          <label><input name="accessory" type="checkbox" value="Headphones"> Headphones</label>
+          <label><input name="accessory" type="checkbox" value="Headset"> Headset</label>
+          <label><input name="accessory" type="checkbox" value="Helmet"> Helmet</label>
+          <label><input name="accessory" type="checkbox" value="Beanie"> Beanie</label>
+          <label><input name="accessory" type="checkbox" value="Beret"> Beret</label>
+          <label><input name="accessory" type="checkbox" value="Fedora"> Fedora</label>
+          <label><input name="accessory" type="checkbox" value="Trilby"> Trilby</label>
+          <label><input name="accessory" type="checkbox" value="Top Hat"> Top Hat</label>
+          <label><input name="accessory" type="checkbox" value="Cowboy Hat"> Cowboy Hat</label>
+          <label><input name="accessory" type="checkbox" value="Baseball Cap"> Baseball Cap</label>
+          <label><input name="accessory" type="checkbox" value="Trucker Hat"> Trucker Hat</label>
+          <label><input name="accessory" type="checkbox" value="Snapback"> Snapback</label>
+          <label><input name="accessory" type="checkbox" value="Bucket Hat"> Bucket Hat</label>
+          <label><input name="accessory" type="checkbox" value="Sun Hat"> Sun Hat</label>
+          <label><input name="accessory" type="checkbox" value="Straw Hat"> Straw Hat</label>
+          <label><input name="accessory" type="checkbox" value="Wide Brim Hat"> Wide Brim Hat</label>
+          <label><input name="accessory" type="checkbox" value="Sombrero"> Sombrero</label>
+          <label><input name="accessory" type="checkbox" value="Tiara"> Tiara</label>
+          <label><input name="accessory" type="checkbox" value="Crown"> Crown</label>
+          <label><input name="accessory" type="checkbox" value="Veil"> Veil</label>
+
+          <span class="dropdownContentSectionLabel"><b>------  Bags  ------</b></span>
+          <label><input name="accessory" type="checkbox" value="Backpack"> Backpack</label>
+          <label><input name="accessory" type="checkbox" value="Messenger Bag"> Messenger Bag</label>
+          <label><input name="accessory" type="checkbox" value="Purse"> Purse</label>
+          <label><input name="accessory" type="checkbox" value="Designer Purse"> Designer Purse</label>
+          <label><input name="accessory" type="checkbox" value="Handbag"> Handbag</label>
+          <label><input name="accessory" type="checkbox" value="Clutch"> Clutch</label>
+          <label><input name="accessory" type="checkbox" value="Tote Bag"> Tote Bag</label>
+          <label><input name="accessory" type="checkbox" value="Duffel Bag"> Duffel Bag</label>
+          <label><input name="accessory" type="checkbox" value="Briefcase"> Briefcase</label>
+          <label><input name="accessory" type="checkbox" value="Suitcase"> Suitcase</label>
+          <label><input name="accessory" type="checkbox" value="Fanny Pack"> Fanny Pack</label>
+          <label><input name="accessory" type="checkbox" value="Drawstring Bag"> Drawstring Bag</label>
+          <label><input name="accessory" type="checkbox" value="Satchel"> Satchel</label>
+          <label><input name="accessory" type="checkbox" value="Crossbody Bag"> Crossbody Bag</label>
+          <label><input name="accessory" type="checkbox" value="Waist Bag"> Waist Bag</label>
+          <label><input name="accessory" type="checkbox" value="Hobo Bag"> Hobo Bag</label>
+        </div>
+      </div>
+    </div>
+
+  <!-- Persona Type Input -->
+    <div class="itemBorderCtn">
+      <label for="inputPersonaType">Persona Type</label>
+      <select id="inputPersonaType">
+        <option disabled hidden selected>Select One</option> 
+        <option value="Nerd">Nerd</option>
+        <option value="Geek">Geek</option>
+        <option value="Goth">Goth</option>
+        <option value="Emo">Emo</option>
+        <option value="Punk">Punk</option>
+        <option value="Scene">Scene</option>
+        <option value="Kawaii">Kawaii</option>
+        <option value="Gamer">Gamer</option>
+        <option value="Hipster">Hipster</option>
+        <option value="Preppy">Preppy</option>
+        <option value="Artsy">Artsy</option>
+        <option value="Fashionista">Fashionista</option>
+        <option value="Flirt">Flirt</option>
+        <option value="Tease">Tease</option>
+        <option value="Cheerleader">Cheerleader</option>
+        <option value="Mean Girl">Mean Girl</option>
+        <option value="Bully">Bully</option>
+        <option value="Jock">Jock</option>
+        <option value="Skater">Skater</option>
+        <option value="Surfer">Surfer</option>
+        <option value="Hippie">Hippie</option>
+        <option value="Country">Country</option>
+        <option value="Rebel">Rebel</option>
+        <option value="Delinquent">Delinquent</option>
+        <option value="Outcast">Outcast</option>
+        <option value="Misfit">Misfit</option>
+        <option value="Weirdo">Weirdo</option>
+        <option value="Loner">Loner</option>
+        <option value="Slacker">Slacker</option>
+        <option value="Bimbo">Bimbo</option>
+        <option value="Airhead">Airhead</option>
+        <option value="Dumb Blonde">Dumb Blonde</option>
+        <option value="Gangster">Gangster</option>
+        <option value="Thug">Thug</option>
+        <option value="Hustler">Hustler</option>
+        <option value="Player">Player</option>
+        <option value="Ladies Man">Ladies Man</option>
+        <option value="Gentleman">Gentleman</option>
+        <option value="Bad Boy">Bad Boy</option>
+        <option value="Bad Girl">Bad Girl</option>
+        <option value="Tomboy">Tomboy</option>
+        <option value="Girly Girl">Girly Girl</option>
+        <option value="Vixen">Vixen</option>
+        <option value="Bombshell">Bombshell</option>
+        <option value="Diva">Diva</option>
+        <option value="Prissy">Prissy</option>
+        <option value="Princess">Princess</option>
+        <option value="Queen">Queen</option>
+        <option value="King">King</option>
+        <option value="Goddess">Goddess</option>
+        <option value="God">God</option>
+        <option value="Fairy">Fairy</option>
+        <option value="Angel">Angel</option>
+        <option value="Demon">Demon</option>
+        <option value="Vampire">Vampire</option>
+        <option value="Werewolf">Werewolf</option>
+        <option value="Zombie">Zombie</option>
+        <option value="Alien">Alien</option>
+        <option value="Robot">Robot</option>
+        <option value="Cyborg">Cyborg</option>
+        <option value="Superhero">Superhero</option>
+        <option value="Supervillain">Supervillain</option>
+        <option value="Vigilante">Vigilante</option>
+      </select>
+    </div>
+    
+  <!-- Positive Attributes Input -->
+    <div class="itemBorderCtn"> 
+      <div class="dropdownPos" id="inputPositiveAttributes">
+        <label for="positiveAttributesContent">Positive Attributes</label>
+        <button id="positiveAttributesBtn">Select Any<span style="white-space: pre;">            ▾</span></button>
+        <div class="dropdownContent" id="positiveAttributesContent">
+          <label><input name="positiveAttributes" type="checkbox" value="Confident"> Confident</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Leader"> Leader</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Protector"> Protector</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Provider"> Provider</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Dominant"> Dominant</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Determined"> Determined</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Playful"> Playful</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Playful Tease"> Playful Tease</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Flirty"> Flirty</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Sensual Charisma"> Sensual Charisma</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Seductive Aura"> Seductive Aura</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Provocative Energy"> Provocative Energy</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Voluptuous Presence"> Voluptuous Presence</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Cheerful"> Cheerful</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Friendly"> Friendly</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Funny"> Funny</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Clever"> Clever</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Strong"> Strong</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Intelligent"> Intelligent</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Brave"> Brave</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Loving"> Loving</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Nurturing"> Nurturing</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Caring"> Caring</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Compassionate"> Compassionate</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Kind"> Kind</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Calm"> Calm</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Honest"> Honest</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Loyal"> Loyal</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Ambitious"> Ambitious</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Creative"> Creative</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Charismatic"> Charismatic</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Wise"> Wise</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Patient"> Patient</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Humble"> Humble</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Optimistic"> Optimistic</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Resourceful"> Resourceful</label>
+          <label><input name="positiveAttributes" type="checkbox" value="Generous"> Generous</label>
+        </div>
+      </div>
+    </div>
+    
+  <!-- Negative Attributes -->  
+    <div class="itemBorderCtn">
+      <div class="dropdownNeg" id="inputNegativeAttributes">
+        <label for="negativeAttributesContent">Negative Attributes</label>
+        <button id="negativeAttributesBtn">Select Any<span style="white-space: pre;">            ▾</span></button>
+        <div class="dropdownContent" id="negativeAttributesContent">
+          <label><input name="negativeAttributes" type="checkbox" value="Stubborn"> Stubborn</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Impulsive"> Impulsive</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Cynical"> Cynical</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Sarcastic"> Sarcastic</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Blunt"> Blunt</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Pessimistic"> Pessimistic</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Skeptical"> Skeptical</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Cautious"> Cautious</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Reserved"> Reserved</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Proud"> Proud</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Perfectionist"> Perfectionist</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Workaholic"> Workaholic</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Competitive"> Competitive</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Manipulative"> Manipulative</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Deceitful"> Deceitful</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Greedy"> Greedy</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Jealous"> Jealous</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Weak"> Weak</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Stupid"> Stupid</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Cowardly"> Cowardly</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Cruel"> Cruel</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Agressive"> Aggressive</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Dishonest"> Dishonest</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Disloyal"> Disloyal</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Arrogant"> Arrogant</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Pessimistic"> Pessimistic</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Inept"> Inept</label>
+          <label><input name="negativeAttributes" type="checkbox" value="Selfish"> Selfish</label>
+        </div>
+      </div>
+    </div>
+  
+  </div>
+  
+<!-- End of Inputs -->
+
+ <!-- Generate button -->
+  <div class="genBtnCtn" style="position: relative;">
+    <button id="generateBtn">Generate Description</button>
+    <button id="stopBtn" hidden>🛑 stop</button>
+  </div>
+
+ <!-- Character Description output -->
+  <div id="descriptionOutputCtn" hidden>
+    <div class="itemBorderCtn">
+      <div class="textAreaTitle" style="position:relative;">
+        <span id="inputBtnCtn">
+          <button id="copyBtn" title="Copy the Description text to clipboard" onclick="navigator.clipboard.writeText(descriptionOutput.value)">📋 Copy</button>
+        </span>
+        <span id="descriptionOutputTitle">Character Description</span>
+      </div>
+      <textarea class="textBox" id="descriptionOutput"></textarea>
+    </div>
+  </div>
+
+ <!-- Generate button 2 -->
+  <div class="genBtnCtn" id="genImgPromptBtnCtn" style="position: relative;">
+    <button id="generateBtn2" hidden>Generate Image Prompt</button>
+    <button id="stopBtn2" hidden>🛑 stop</button>
+  </div>
+
+ <!-- Image Prompt output -->
+  <div id="imagePromptOutputCtn" hidden>
+    <div class="itemBorderCtn">
+      <div class="textAreaTitle" style="position:relative;">
+        <span id="inputBtnCtn">
+          <button id="copyBtn2" title="Copy the Image Prompt to clipboard" onclick="navigator.clipboard.writeText(imagePrompt.value)">📋 Copy</button>
+        </span>
+        <span id="imagePromptTitle">Image Prompt</span>
+      </div>
+      <textarea class="textBox" id="imagePrompt"></textarea>
+    </div>
+  </div>
+
+ <br>
+
+<!-- Regenerate Images Button -->
+<div id="reGenImagesBtnCtn" style="position: relative;" hidden>
+  <button id="reGenImagesBtn">Regenerate Images</button>
+</div>
+
+</div>  <!-- mainCtn end div -->
+  
+<!-- Loading Animation -->
+<div id="loaderEl"></div>
+  
+<!-- Images Area -->
+<div id="imagesWrapper">
+  <div id="images"></div>
+</div>
+  
+<div style="height:3rem;"></div>
+
+<!-- Right-side collapsible profiles panel -->
+  <div id="profilePanel">
+    <div id="profileTab">Profiles</div>
+    <div id="profileContent">
+      <div id="profileWarning">
+        <span>⚠️ Profiles are stored locally in your browser. ⚠️ <br> They will be lost if saved in Incognito mode <br> or if browser history is cleared. <br><br>Export a file to your download folder to import it later.</span>
+      </div>
+        <div class="profileButtons" id="profileImportExport">
+          <button title="Import a JSON file of profiles" id="importProfilesBtn">📥 Import</button>
+          <button title="Export all profiles as a JSON file" id="exportProfilesBtn">📤 Export</button>
+        </div>
+        <div id="profileHeader">
+          <h3>Saved Character Profiles</h3>
+            <button title="Save all current character data as a new profile." id="saveProfileInsideBtn">💾 Save New Profile</button>
+        </div>
+      <hr style="margin-top: -0.3rem; margin-bottom: 1rem; border: 2px solid teal; opacity:0.7; border-radius: 3px; box-shadow: 0 2px 6px rgba(0,0,0,1);">
+      <div id="profilesList"></div>
+    </div>
+    <!-- Custom Modal (Prompt / Confirm) -->
+    <div id="profileModal" class="profile-modal hidden">
+      <div class="profile-modal-box">
+        <div class="profile-modal-title" id="profileModalTitle"></div>
+        <div class="profile-modal-message" id="profileModalMessage"></div>
+        <input type="text" id="profileModalInput" class="profile-modal-input hidden" maxlength="30" placeholder="Enter name...">
+        <div class="profile-modal-buttons">
+          <button id="profileModalCancel">Cancel</button>
+          <button id="profileModalConfirm">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- Toast Notification -->
+<div id="toast" class="toast"></div>
+  
+</div> 
+</body> 
+<!-- End of Body -->
+
+  
+<!-- Gallery Area -->
+<div id="galleryWrapper">
+  <!-- Show Gallery Button -->
+  <div id="showGalleryBtnCtn">
+    <button id="showGalleryBtn"
+      onclick="
+      if (galleryCtn.hidden) 
+         {galleryCtn.hidden = false; showGalleryBtn.textContent = '❌ Hide Gallery',
+          galleryWrapper.scrollIntoView({behavior: 'smooth'}),
+          galleryCtn.innerHTML = galleryCtn.innerHTML;}
+      else 
+         {galleryCtn.hidden = true; showGalleryBtn.textContent = '🖼️ Show Gallery';}">
+      🖼️ Show Gallery
+    </button>
+  </div>
+
+  <!-- Gallery -->
+  <div id="galleryCtn" hidden>
+    <div id="galleryTitle"> G a l l e r y </div>
+    [image(galleryOptions)]
+  </div>
+</div>
+
+<!-- Footer -->
+<div id="footer">Generator created by
+<div id="footerName">Griffin Merrill
+</div></div>
+
+<!-- Page Modal (Prompt / Confirm) -->
+<div id="pageModal" class="page-modal hidden">
+  <div class="page-modal-box">
+    <div class="page-modal-title" id="pageModalTitle"></div>
+    <div class="page-modal-message" id="pageModalMessage"></div>
+    <input type="text" id="pageModalInput" class="page-modal-input hidden" maxlength="30" placeholder="Enter name...">
+    <div class="page-modal-buttons">
+      <button id="pageModalCancel"></button>
+      <button id="pageModalConfirm"></button>
+    </div>
+  </div>
+</div>
+  
+</html>
+<!-- End of Page --> 
+
+
+<!-- CSS styling for the page. -->
+<style>
+  html {color-scheme:dark;}
+  body {
+    display: flex;
+    flex-direction: column;
+    color: whitesmoke;
+    border-radius: 5px;
+    background-color: #111111;
+    height:100vh;
+  }
+  .flexWrapper {flex: 1;}
+  
+  .itemBorderCtn label {
+    position: relative;
+    font-size: 16px;
+    font-weight: bold;
+  }
+  button {
+    cursor: pointer;
+    color: whitesmoke;
+    background-color: black;
+    border-radius: 5px;
+    padding: 5px;
+  }
+
+  select{cursor: pointer; 
+  option{font-size:14px;}
+  }
+  select, 
+  .textLine {
+    width: 13rem; 
+    height: 26px; 
+    background-color: black;
+    border: 1px solid grey;
+    border-radius: 5px; 
+    padding: 2px;
+    text-align: center;
+  }
+  .randomInputBtn {
+    position: absolute;
+    font-size:12px;
+    right: 0px; bottom: -1.0px;
+    background-color: black;
+    border-radius: 5px 5px 0 0;
+    border: 1px solid grey;
+    padding: 3px;
+  } 
+  #resetPageBtn {
+    position: absolute;
+    font-size: 13px; 
+    left: 0; top:0; 
+    margin: 1rem; 
+    padding: 6px; 
+    border-radius: 5px; 
+    background-color: black;
+    opacity: 0.7;
+  }
+
+  #pageTitle {font-size: 45px;}
+  
+  #subtitle {
+    font-size: 15px; 
+    color: grey; 
+    margin-top:-1.6rem; 
+    margin-bottom: 2em;
+  }
+
+  /* #wrapper {
+    display: flex;
+    justify-content: center;
+  } */
+  #mainCtn {
+    display: flex;
+    flex-direction: column;
+    margin:auto;
+    max-width: 800px;
+  } 
+  .rowOptionsCtn {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    gap: 1.3rem;
+    margin-bottom: 1rem;
+  } 
+  .itemBorderCtn {
+    display:flex;
+    flex-direction:column;
+    padding: 5px;
+    border-radius: 5px;
+    border: 1.5px solid grey;
+    background-color: #353839;
+  }
+  #inputAge {
+    accent-color: whitesmoke;
+    opacity: 0.5;
+    transition: opacity .3s;
+    cursor: pointer;
+  }
+  #inputAge:hover {opacity: 1;}
+  
+  #labelSlider {
+    align-items: center;
+    text-align: right;
+    border: 1px solid grey;
+    background-color: black;
+    border-radius: 5px;
+    white-space:pre;
+  }
+  #inputAgeDisplay {
+    width: 95px;
+    background-color: black;
+    border-radius: 5px;
+    border: 1px solid black;
+    padding: 2px 3px 2px 4px;
+    text-align: left;
+  }
+  .textAreaTitle {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 2.5px;
+  }
+  .textBox {
+    width: 100%;
+    min-height: 10rem;
+    max-height: 20rem;
+    padding: 10px;
+    border-radius: 5px;
+    background-color: black;
+    transition: height 0.2s ease;
+    resize: none;
+  }
+  #copyBtn, 
+  #copyBtn2 {
+    position:absolute;
+    width: 4.5rem;
+    left: 2px;
+    font-size: 12px;
+    padding:0;
+  }
+  .genBtnCtn {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+  } 
+  #generateBtn, 
+  #generateBtn2, 
+  #reGenImagesBtn {
+    width: 14rem; 
+    padding: 10px;
+    margin: 1rem;
+    border-radius: 5px;
+    font-size: 18px;
+  }
+  #generateBtn:hover, 
+  #generateBtn2:hover, 
+  #reGenImagesBtn:hover,
+  #resetPageBtn:hover, 
+  #showGalleryBtn:hover, 
+  #copyBtn:hover, 
+  #copyBtn2:hover {opacity: 1; background-color: #455;} 
+  
+  #generateBtn:disabled, 
+  #generateBtn2:disabled,
+  #reGenImagesBtn:disabled {color: grey;}
+  
+  #stopBtn, 
+  #stopBtn2 {
+    position: absolute;
+    font-size: 15px;
+    right: 13.3rem; bottom: 1.5rem;
+    color: red;
+    border: 1px solid red;
+  }
+  #stopBtn:hover, 
+  #stopBtn2:hover {background-color: #353839;}
+  
+  #showGalleryBtn {
+    width: 10rem; 
+    margin: 0.5rem;
+  }
+  #imagesWrapper,
+  #galleryWrapper{
+    width:1000px; 
+    margin:auto;
+  }
+  #images {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 1rem;
+  }
+  #galleryTitle {
+    font-size: 40px;
+    font-weight: bold;
+    font-style: italic;
+    font-family: serif;
+    margin-top: 1rem;
+    margin-bottom: 0.7rem;
+  }
+  #footer {
+    font-size: 12px;
+    margin:0.5rem;
+    opacity: 0.7;
+  }
+  #footerName {
+    font-size: 15px;
+    margin-bottom: 0.5rem;
+    font-weight: bold;
+    font-style: italic;
+    color: turquoise;
+  }
+  .toast {
+  visibility: hidden;
+  min-width: 250px;
+  background: rgba(0, 128, 128, 0.25);
+  color: #fff;
+  text-align: center;
+  border-radius: 8px;
+  padding: 12px 16px;
+  position: fixed;
+  z-index: 9999;
+  right: 65px;
+  bottom: 30px;
+  font-size: 15px;
+  opacity: 0;
+  transition: opacity 0.4s, bottom 0.4s;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  }
+  
+  .toast.show {
+    visibility: visible;
+    opacity: 1;
+    bottom: 50px;
+  }
+
+ /* --- Pulse effect for buttons --- */
+  @keyframes pulseGlow {
+    0% {box-shadow: 0 0 0px rgba(255, 200, 80, 0.0);}
+    50% {box-shadow: 0 0 12px rgba(255, 200, 80, 0.7);}
+    100% {box-shadow: 0 0 0px rgba(255, 200, 80, 0.0);}
+  }
+  .pulse-highlight {
+    animation: pulseGlow 1.8s infinite;
+  }  
+</style>
+
+<!-- Special Dropdown styling for the page. -->
+<style>
+  .dropdownPos, 
+  .dropdownNeg, 
+  .dropdownMST, 
+  .dropdownFST, 
+  .dropdownMClothing,
+  .dropdownFClothing,
+  .dropdownAccessory{
+    position: relative;
+    width: 13rem;
+  }
+  #positiveAttributesBtn, 
+  #negativeAttributesBtn, 
+  #mSTBtn, 
+  #fSTBtn, 
+  #mClothingBtn,
+  #fClothingBtn,
+  #accessoryBtn{
+    width: 100%;
+    text-align:right;
+    padding: 2px 5px 2px 0px;
+    cursor: pointer;
+    background-color: black;
+    border: 1px solid grey;
+    border-radius: 5px;
+  }
+  .dropdownContent {
+    display: none;
+    position: absolute;
+    border: 1px solid grey;
+    
+    background-color: black;
+    width: 100%;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index:100;
+  }
+  .dropdownContent label {
+    display: block;
+    font-size: 14px;
+    font-weight: normal;
+    padding: 2.5px 0px 2.5px 5px;
+    text-align:left;
+    cursor: pointer;
+  }
+  #mSTContent label, 
+  #fSTContent label, 
+  #mClothingContent label,
+  #fClothingContent label,
+  #accessoryContent label {
+     padding-left:5px;
+  }
+  .dropdownPos.open .dropdownContent,
+  .dropdownNeg.open .dropdownContent,
+  .dropdownMST.open .dropdownContent,
+  .dropdownFST.open .dropdownContent,
+  .dropdownMClothing.open .dropdownContent,
+  .dropdownFClothing.open .dropdownContent,
+  .dropdownAccessory.open .dropdownContent {
+    display: block;
+    border-radius:0 0 5px 5px;
+    top:41px;
+  }
+  .dropdownContentSectionLabel {
+    font-size: 17px;
+    color: grey;
+    white-space: pre;
+  }
+</style>
+
+<!-- Collapsible Profiles Panel styling for the page. -->
+<style>
+ /* --- Collapsible Profiles Panel --- */
+  #profilePanel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: 430px;
+    padding-left:10px;
+    transform: translateX(410px);
+    transition: transform 0.3s ease;
+    background-color: #1e1e1e;
+    color: #f1f1f1;
+    box-shadow: -2px 0 10px rgba(0,0,0,0.5);
+    z-index: 1000;
+    font-family: sans-serif;
+    border-left: 1px solid #333;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  #profilePanel.open {
+    transform: translateX(0);
+  }
+  
+  /* Small tab handle */
+  #profileTab {
+    position: absolute;
+    left: -39.4px;
+    top: 30%;
+    height: 120px;
+    transform: translateY(-50%);
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    background-color: #1e1e1e;
+    color: #f1f1f1;
+    box-shadow: -5px 1px 10px rgba(0,0,0,0.5);
+    padding: 10px;
+    border-right:none;
+    border-top: 1px solid #333;
+    border-bottom: 1px solid #333;
+    border-left: 1px solid #333;
+    border-radius: 8px 0 0 8px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    user-select: none;
+  }
+  
+  #profileTab:hover {
+    background-color: #455;
+  }
+  
+  /* Warning text */
+  #profileWarning {
+    font-size: 0.8rem;
+    color: #bbb;
+    background: #252525;
+    border-left: 3px solid #ffb84d;
+    padding: 8px 10px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    line-height: 1.2;
+    box-shadow: 0 2px 6px rgba(0,0,0,1);
+  }
+  
+ /* Header + button container */
+  #profileHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  
+ /* Header text  */
+  #profileHeader h3 {
+    margin: 0;
+    font-size: 17.5px;
+    color: #f0f0f0;
+    margin-top: 5px;
+  }
+
+  #profileContent {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+  }
+  
+ /* --- Profile Item styling --- */
+  .profileItem {
+    background: #1e1e1e;
+    color: #fff;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 6px rgba(0,0,0,1);
+    transition: all 0.3s ease;
+    cursor: grab;
+    touch-action: none; /* prevents weird scrolling during drag */
+  }
+  
+  /* while user is dragging, totally suppress hover/active visuals */
+  .profile-list-dragging .profileHeader,
+  .profile-list-dragging .profileHeader:hover,
+  .profile-list-dragging .profileHeader.active {
+    background: #262626 !important;       /* neutral background while dragging */
+    border-left-color: transparent !important; /* cancel teal accent while dragging */
+    box-shadow: none !important;
+    color: inherit !important;
+  }
+
+  .profileItem.dragging {
+    opacity: 0.65;
+    border: 1px dashed #4db6ac;
+    transform: scale(0.98);
+    background: rgba(77,182,172,0.04);
+  }
+  .profileItem:hover {
+    transform: scale(1.01);
+    box-shadow: 0 4px 12px rgba(0,0,0,1);
+  }
+  
+  .profileItem:active {
+    cursor: grabbing;
+  }
+
+  .profileHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    cursor: pointer;
+    background: #262628;
+    border-left: 4px solid transparent;
+    transition: background 0.3s ease, border-color 0.3s ease;
+  }
+
+  .profileHeader:hover {
+    border-left: 4px solid #00bfa6; /* teal accent */
+    background: rgba(0, 128, 128, 0.25);
+    transition: background 0.3s ease, border-color 0.3s ease, transform 0.3s ease;
+  }
+
+  .profileHeader.active {
+    border-left: 4px solid #00bfa6; /* teal accent */
+    background: rgba(0, 128, 128, 0.25);
+    transition: background 0.3s ease;
+  }
+
+ /* --- Drawer-style description box --- */
+  .profileDescription {
+    max-height: 0;
+    overflow: hidden;
+    background: rgba(0, 128, 128, 0.08);
+    color: #ccc;
+    border-radius: 0 0 8px 8px;
+    transition: max-height 0.45s cubic-bezier(0.45, 0, 0.1, 1), padding 0.40s ease, opacity 0.50s ease;
+    border-left: 4px solid #00bfa6;
+    opacity: 0;
+    padding: 0 12px;
+  }
+
+  /* Open desctiption state */
+  .profileDescription.open {
+    max-height: 200px;
+    opacity: 1;
+    padding: 10px;
+  }
+
+  /* Profile name */
+  .profileName {
+    flex: 1;
+    margin-right: 10px;
+    overflow-wrap: anywhere;
+    font-weight: 500;
+  }
+
+ /* Panel Buttons*/
+  /* --- Import/Export buttons --- */
+  #profileImportExport{
+    justify-content:right; 
+    margin-bottom:10px;
+  }
+  
+  /* import, export buttons */
+  #profileImportExport button{
+    width:75px;
+    max-height: 2rem;
+    padding:6px;
+  }
+  
+  /* Save Profile button */
+  #profileHeader button {
+    margin-top: -5px;
+    padding: 6px 16px;
+  }
+  
+  /* load, edit, delete buttons */
+  .profileButtons {
+    display: flex;
+    gap: 2px;
+  }
+  
+  /* load, edit, delete  */
+  .profileButtons button {
+    margin-left: 4px;
+    padding:  6px;
+    border-radius: 6px;
+  }
+  
+  /* shared button styling  */
+  #profileImportExport button,
+  #profileHeader button,
+  .profileButtons button {
+    color: #fff;
+    background: #444;
+    border: none;
+    border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0,0,0,1);
+    transition: background 0.2s ease, transform 0.2s ease;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  
+  /* shared button styling  */
+  #profileImportExport button:hover,
+  #profileHeader button:hover,
+  .profileButtons button:hover {
+    background: #455;    
+    transform: scale(1.05);
+    transition: background 0.2s ease, transform 0.2s ease;
+  }
+  
+  /* shared button styling  */
+  #profileImportExport button:active,
+  #profileHeader button:active,
+  .profileButtons button:active {
+    transform: scale(0.95);
+    box-shadow: 0 0px 2px rgba(0,0,0,1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+</style>
+
+<!-- Modal Styling for the page. -->
+<style>
+  .page-modal,
+  .profile-modal {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    padding-bottom: 30vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.25s ease;
+    z-index: 20;
+  }
+  
+  .page-modal.hidden,
+  .profile-modal.hidden {
+    opacity: 0;
+    pointer-events: none;
+  }
+  
+  /* --- Shared Modal Box --- */
+  .page-modal-box,
+  .profile-modal-box {
+    background: #1d1d1d;
+    border: 1px solid #4db6ac;
+    border-radius: 10px;
+    padding: 18px 20px;
+    width: 85%;
+    max-width: 340px;
+    min-height: 170px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
+    color: #e0f2f1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  /* --- Title Text --- */
+  .page-modal-title,
+  .profile-modal-title {
+    text-align: center;
+    font-size: 1.3em;
+    font-weight: 500;
+    margin-bottom: 10px;
+    color: #4db6ac;
+  }
+  
+  /* --- Message Text --- */
+  .page-modal-message,
+  .profile-modal-message {
+    text-align: center;
+    line-height: 1.4;
+    font-size: 0.95em;
+    white-space: pre-line;
+    word-break: break-word;
+    margin-bottom: 10px;
+    color: #cdeceb;
+  }
+  
+  /* --- Input Fields --- */
+  .page-modal-input,
+  .profile-modal-input {
+    width: 100%;
+    padding: 8px;
+    margin: 10px 0 16px 0;
+    border: 1px solid #4db6ac;
+    border-radius: 5px;
+    background: #111;
+    color: #e0f2f1;
+    text-align: center;
+    font-size: 0.95em;
+    transition: border-color 0.2s ease;
+  }
+  
+  .page-modal-input:focus,
+  .profile-modal-input:focus {
+    outline: none;
+    border-color: #80cbc4;
+  }
+  
+  /* --- Button Containers --- */
+  .page-modal-buttons,
+  .profile-modal-buttons {
+    display: flex;
+    justify-content: space-evenly;
+    gap: 12px;
+  }
+  
+  /* --- Buttons --- */
+  .page-modal-buttons button,
+  .profile-modal-buttons button {
+    flex: 1;
+    padding: 6px 0;
+    border: none;
+    border-radius: 6px;
+    background: #00796b;
+    color: #fff;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.1s ease;
+  }
+  
+  .page-modal-buttons button:hover,
+  .profile-modal-buttons button:hover {
+    background: #009688;
+    transform: translateY(-1px);
+  }
+  
+  .page-modal-buttons button:active,
+  .profile-modal-buttons button:active {
+    transform: translateY(0);
+  }
+  
+  /* --- Utility Hidden --- */
+  .hidden {
+    display: none;
+  }
+</style>
+
+
+<!-- Functionality for the page. -->
+<script>
+  eventListeners();  // Add event listeners to the page, for when user interacts with it.
+  LocalStorageStuff();  // Save/Load data to/from localStorage.
+  dropDownInputs();  // Add special dropdown functionality to the page.
+  ageSlider();  // Add age slider functionality to the page.
+  profilePanelHandler();  // Add profile panel functionality to the page.
+</script>
+
+
+
+
+
+
+
 
       <!-- 🔹 Do NOT redirect to perchance.org -->
     </div>
