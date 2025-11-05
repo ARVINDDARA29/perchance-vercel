@@ -4,10 +4,60 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Your Perchance Generator</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        padding: 40px;
+        background: #fafafa;
+        color: #222;
+      }
+      h1 {
+        font-size: 28px;
+        color: #333;
+      }
+      p {
+        font-size: 18px;
+      }
+      .box {
+        margin: 30px auto;
+        max-width: 600px;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        padding: 25px;
+      }
+      a {
+        color: #0070f3;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      footer {
+        margin-top: 50px;
+        font-size: 14px;
+        color: #777;
+      }
+    </style>
   </head>
   <body>
-    <h2>Your Perchance Generator</h2>
-    <p>👇 Yahan apne Perchance se export kiya hua HTML paste karo 👇</p>
-    <p>Example: <a href="https://perchance.org" target="_blank">Perchance.org</a></p>
+    <div class="box">
+      <h1>Your Perchance Generator</h1>
+      <p>
+        👇 Yahan apne <b>Perchance</b> se export kiya hua HTML paste karo 👇
+      </p>
+
+      <!-- 🔹 Paste your exported Perchance HTML below -->
+      <div id="generator-area">
+        <p><i>Example placeholder content...</i></p>
+      </div>
+
+      <!-- 🔹 Do NOT redirect to perchance.org -->
+    </div>
+
+    <footer>
+      Example hosted on <a href="https://vercel.com" target="_blank">Vercel</a>
+    </footer>
   </body>
 </html>
